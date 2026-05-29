@@ -38,6 +38,7 @@ def import_data(location, weather_agg, df_zika, df_dengue, df_score, df_weather,
     if debug:
         print(f"Data imported for location {location}")
 
+    criteria = "EW_start_date >= '2016-01-01'"
     df_z.query(criteria).to_feather(f"data/zika_{location}.feather")
     df_d.query(criteria).to_feather(f"data/dengue_{location}.feather")
     df_s.query(criteria).to_feather(f"data/score_{location}.feather")
