@@ -176,14 +176,17 @@ def prepare_mining_data(df_train, df_test, df_d, df_w, z_features, target, weath
 
     # dengue
     df_d_tmp = df_d[['EW_start_date', 'cases']].copy()
-    df_d_tmp.rename(columns={'cases': 'dengue'}, inplace=True)
+    df_d_tmp = df_d_tmp.rename(columns={'cases': 'dengue'})
 
     # weather
     df_w_tmp = df_w.copy()
+    df_w_tmp = df_w_tmp.sort_values('EW_start_date').reset_index(drop=True)
+    cols_to_lag = [col for col in df_w_tmp.columns if col != 'EW_start_date']
+
     for k in range(1, weather_lag+1):
-        df_tmp = df_w_tmp.shift(k)
-        df_tmp.EW_start_date = df_w_tmp.EW_start_date
-        df_w_tmp = pd.merge(df_w_tmp, df_tmp, suffixes=('', f'__lag{k}'), on='EW_start_date', how='left')
+        df_lagged_cols = df_w_tmp[cols_to_lag].shift(k)
+        df_lagged_cols = df_lagged_cols.add_suffix(f'__lag{k}')
+        df_w_tmp = pd.concat([df_w_tmp, df_lagged_cols], axis=1)
 
     # merge
     df_train_tmp = pd.merge(df_train_tmp, df_d_tmp, on='EW_start_date', how='left')
@@ -196,3 +199,36 @@ def prepare_mining_data(df_train, df_test, df_d, df_w, z_features, target, weath
     X_test = df_test_tmp.copy()
 
     return X_train, X_test, y_train, y_test
+
+# uses timeseriessplit to tune hyperparameters
+def tune_pipeline(X_train, y_train, modelling_pipeline, param_grid, n_splits=5):
+    tscv = TimeSeriesSplit(n_splits=n_splits)
+
+    neg_mae_scores = cross_val_score(
+        modelling_pipeline, 
+        X_train, 
+        y_train, 
+        cv=tscv, 
+        scoring='neg_mean_absolute_error'
+    )
+
+    random_search = RandomizedSearchCV(
+        estimator=modelling_pipeline,
+        param_distributions=param_grid,
+        n_iter=50,
+        cv=tscv,
+        scoring='neg_mean_absolute_error',
+        n_jobs=-1,
+        random_state=SEED
+    )
+
+    random_search.fit(X_train, y_train)
+
+    print(f"  -> Best Parameters: {random_search.best_params_}")
+    print(f"  -> Best Validation MAE: {-random_search.best_score_:.4f}")
+
+    mae_scores = -neg_mae_scores
+    print(f"MAE across folds: {mae_scores}")
+    print(f"Mean Validation MAE: {np.mean(mae_scores)}")
+
+    return random_search.best_estimator_
