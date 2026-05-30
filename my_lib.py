@@ -161,16 +161,19 @@ def prepare_data(df_train, df_test, df_d, df_w, z_features, target, weather_lag=
 
     return X_train, X_test, y_train, y_test
 
-def prepare_mining_data(df_train, df_test, df_d, df_w, z_features, target, weather_lag=3, debug=False, random_state=SEED):
+def prepare_mining_data(df_train, df_test, df_d, df_w, z_features, target, features_to_use=None, weather_lag=3, debug=False, random_state=SEED):
     y_train = df_train[target].values
     y_test = df_test[target].values if target in df_test.columns else None
 
     # zika
     df_train_tmp = df_train.copy()
+    # adding month as it likely a good predictor
     df_train_tmp['Month'] = df_train_tmp['EW_start_date'].dt.month
+    # strip extra info from training set
     df_train_tmp = df_train_tmp[z_features].copy()
 
     df_test_tmp = df_test.copy()
+    # adding month as it likely a good predictor
     df_test_tmp['Month'] = df_test_tmp['EW_start_date'].dt.month
     df_test_tmp = df_test_tmp[z_features].copy()
 
@@ -178,7 +181,7 @@ def prepare_mining_data(df_train, df_test, df_d, df_w, z_features, target, weath
     df_d_tmp = df_d[['EW_start_date', 'cases']].copy()
     df_d_tmp = df_d_tmp.rename(columns={'cases': 'dengue'})
 
-    # weather
+    # weather - get lags
     df_w_tmp = df_w.copy()
     df_w_tmp = df_w_tmp.sort_values('EW_start_date').reset_index(drop=True)
     cols_to_lag = [col for col in df_w_tmp.columns if col != 'EW_start_date']
@@ -188,15 +191,16 @@ def prepare_mining_data(df_train, df_test, df_d, df_w, z_features, target, weath
         df_lagged_cols = df_lagged_cols.add_suffix(f'__lag{k}')
         df_w_tmp = pd.concat([df_w_tmp, df_lagged_cols], axis=1)
 
-    # merge
+    # merge data
     df_train_tmp = pd.merge(df_train_tmp, df_d_tmp, on='EW_start_date', how='left')
     df_train_tmp = pd.merge(df_train_tmp, df_w_tmp, on='EW_start_date', how='left')
 
     df_test_tmp = pd.merge(df_test_tmp, df_d_tmp, on='EW_start_date', how='left')
     df_test_tmp = pd.merge(df_test_tmp, df_w_tmp, on='EW_start_date', how='left')
 
-    X_train = df_train_tmp.copy()
-    X_test = df_test_tmp.copy()
+    # filter based on argument
+    X_train = df_train_tmp[features_to_use].copy()
+    X_test = df_test_tmp[features_to_use].copy()
 
     return X_train, X_test, y_train, y_test
 
