@@ -69,7 +69,8 @@ from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.decomposition import PCA
-from sklearn.compose import ColumnTransformer
+from sklearn.compose import ColumnTransformer, make_column_selector
+from sklearn.impute import SimpleImputer
 
 from sklearn.model_selection import cross_val_score
 from sklearn.metrics import confusion_matrix, classification_report, mean_absolute_error
@@ -160,7 +161,7 @@ def prepare_data(df_train, df_test, df_d, df_w, z_features, target, weather_lag=
 
     return X_train, X_test, y_train, y_test
 
-def prepare_mining_data(df_train, df_test, df_d, df_w, z_features, target, preprocessor: ColumnTransformer, weather_lag=3, debug=False, random_state=SEED):
+def prepare_mining_data(df_train, df_test, df_d, df_w, z_features, target, weather_lag=3, debug=False, random_state=SEED):
     y_train = df_train[target].values
     y_test = df_test[target].values if target in df_test.columns else None
 
@@ -191,9 +192,7 @@ def prepare_mining_data(df_train, df_test, df_d, df_w, z_features, target, prepr
     df_test_tmp = pd.merge(df_test_tmp, df_d_tmp, on='EW_start_date', how='left')
     df_test_tmp = pd.merge(df_test_tmp, df_w_tmp, on='EW_start_date', how='left')
 
-    X_train = preprocessor.fit_transform(df_train_tmp)
-    X_test = preprocessor.transform(df_test_tmp)
+    X_train = df_train_tmp.copy()
+    X_test = df_test_tmp.copy()
 
     return X_train, X_test, y_train, y_test
-
-
